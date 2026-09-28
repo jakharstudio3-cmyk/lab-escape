@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escape the Virtual Lab – C Language Challenge</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#070b14;--fg:#dff6ff;--ac:#22e3a5;--warn:#ffb545;--bad:#ff5d73;--pn:#0f1a30;--ln:#2b5b8a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070b14;--fg:#dff6ff}}
+:root[data-theme="dark"]{--bg:#070b14;--fg:#dff6ff}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;display:flex;align-items:center;justify-content:center}
+#wrap{position:relative;width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;background:#000;box-shadow:0 0 40px #0008}
+canvas{width:100%;height:100%;display:block}
+.ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,8,18,.82);padding:2%}
+.ov.on{display:flex}
+.card{background:var(--pn);border:2px solid var(--ln);border-radius:10px;padding:2.2% 3%;max-width:82%;box-shadow:0 0 30px #22e3a533;font-size:clamp(11px,1.7vw,17px);line-height:1.5}
+h1{font-family:"Courier New",monospace;font-size:clamp(20px,3.6vw,38px);margin:0 0 .4em;color:var(--ac);letter-spacing:1px}
+h2{font-family:"Courier New",monospace;margin:0 0 .5em;font-size:clamp(14px,2vw,21px);color:var(--warn)}
+p{margin:.4em 0}
+kbd{background:#1c2c4d;border:1px solid var(--ln);border-radius:4px;padding:0 .4em;font-family:"Courier New",monospace}
+pre{background:#050a12;border-left:4px solid var(--ac);padding:.7em 1em;margin:.6em 0;font-family:"Courier New",monospace;color:#9dffd8;overflow:auto;font-size:clamp(11px,1.7vw,16px)}
+button{font:inherit;cursor:pointer;color:var(--fg);background:#16264a;border:2px solid var(--ln);border-radius:8px;padding:.55em 1em;text-align:left;transition:transform .1s,border-color .1s}
+button:hover,button:focus-visible{border-color:var(--ac);transform:translateY(-1px);outline:none}
+button.big{background:var(--ac);color:#03110c;font-weight:bold;text-align:center;border-color:var(--ac);font-size:1.1em;margin-top:.6em}
+#opts{display:grid;grid-template-columns:1fr 1fr;gap:.6em}
+#opts button.x{border-color:var(--bad);background:#3a1421;animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#fb{min-height:1.5em;margin-top:.5em;color:var(--bad);font-weight:bold}
+#hud{position:absolute;left:1.5%;top:1.5%;font-family:"Courier New",monospace;font-size:clamp(10px,1.5vw,16px);color:var(--fg);text-shadow:0 0 6px #000;pointer-events:none}
+#bar{width:min(22vw,220px);height:10px;background:#0a1220;border:1px solid var(--ln);margin-top:4px}
+#bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .6s}
+#tip{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);font-family:"Courier New",monospace;background:#000b;border:1px solid var(--ac);border-radius:6px;padding:.3em .9em;font-size:clamp(11px,1.6vw,16px);display:none;pointer-events:none;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){button,#opts button.x{animation:none;transition:none}}
+</style></head><body>
+<div id="wrap">
+<canvas id="c" width="960" height="540"></canvas>
+<div id="hud"><div id="lv">LEVEL 1 / 10</div><div id="bar"><i></i></div></div>
+<div id="tip"></div>
+
+<div class="ov on" id="start"><div class="card">
+<h1>ESCAPE THE VIRTUAL LAB</h1>
+<p>You are trapped inside a virtual computer laboratory. The exit door is sealed by 10 terminals. Solve one C-language question on each terminal, in order, to unlock the door. Every solved terminal makes the next question harder.</p>
+<p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys to move &nbsp; <kbd>E</kbd> to use a terminal &nbsp; <kbd>1</kbd>–<kbd>4</kbd> to answer &nbsp; <kbd>Esc</kbd> to close</p>
+<p>Topics: if, else, if-else, and for loops. Find the glowing terminal to begin.</p>
+<button class="big" id="go">Start escaping</button></div></div>
+
+<div class="ov" id="qo"><div class="card" style="width:78%">
+<h2 id="qh"></h2><pre id="qc"></pre><p id="qt"></p>
+<div id="opts"></div><div id="fb"></div></div></div>
+
+<div class="ov" id="win"><div class="card" style="text-align:center">
+<h1>YOU ESCAPED!</h1><p id="ws"></p><p>All 10 terminals solved. The lab is behind you.</p>
+<button class="big" id="again">Play again</button></div></div>
+</div>
+
+<script>
+const Q=[
+{c:'int x = 5;\nif (x > 3)\n    printf("Yes");',q:'What is the output?',o:['No','Yes','Error','Nothing is printed'],a:1},
+{c:'int a = 2;\nif (a == 3)\n    printf("A");\nelse\n    printf("B");',q:'What is the output?',o:['A','AB','B','Compilation error'],a:2},
+{c:'',q:'Which is the correct syntax of an if statement in C?',o:['if x > 5 then','if (x > 5)','if [x > 5]','if x > 5:'],a:1},
+{c:'int i;\nfor (i = 0; i < 3; i++)\n    printf("%d ", i);',q:'What is the output?',o:['1 2 3','0 1 2 3','0 1 2','1 2'],a:2},
+{c:'int i, sum = 0;\nfor (i = 1; i <= 4; i++)\n    sum = sum + i;\nprintf("%d", sum);',q:'What value is printed?',o:['10','4','6','24'],a:0},
+{c:'int m = 75;\nif (m >= 90) printf("A");\nelse if (m >= 70) printf("B");\nelse printf("C");',q:'What is the output?',o:['A','C','B','AB'],a:2},
+{c:'int i;\nfor (i = 10; i > 0; i -= 3)\n    printf("%d ", i);',q:'What is the output?',o:['10 7 4 1','10 7 4','9 6 3','10 8 6 4 2'],a:0},
+{c:'int i;\nfor (i = 0; i < 10; i += 2)\n    printf("Hi ");',q:'How many times is "Hi" printed?',o:['10','4','6','5'],a:3},
+{c:'int i, c = 0;\nfor (i = 1; i <= 5; i++) {\n    if (i % 2 == 0)\n        c++;\n}\nprintf("%d", c);',q:'What value is printed?',o:['3','2','5','0'],a:1},
+{c:'int i;\nfor (i = 1; i <= 5; i++) {\n    if (i % 2 == 0) printf("E");\n    else printf("O");\n}',q:'What is the output?',o:['OEOEO','EOEOE','OOEEO','OEOE'],a:0}
+];
+const $=id=>document.getElementById(id),C=$('c'),x=C.getContext('2d'),W=960,H=540,CH='01{}();<>=+*#if for';
+let st='start',cur=0,t=0,shake=0,parts=[],toast='',toastT=0,keys={},modal=false,t0=0,flash=0,near=-1,last=0;
+const P={x:60,y:450,dx:1,walk:0,mv:false};
+const desks=[];for(let i=0;i<10;i++)desks.push({x:90+(i%5)*170,y:i<5?350:200,w:110,h:46});
+const door={x:850,w:80,open:0};
+const drops=[];for(let i=0;i<4;i++){drops[i]=[];for(let c=0;c<10;c++)drops[i].push({s:20+Math.random()*30,o:Math.random()*100})}
+let AC;function beep(f,d,ty){try{AC=AC||new AudioContext();const o=AC.createOscillator(),g=AC.createGain();o.type=ty||'square';o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+
+function reset(){cur=0;P.x=60;P.y=450;door.open=0;parts=[];flash=0;modal=false;st='play';t0=performance.now();hud()}
+function hud(){$('lv').textContent='LEVEL '+Math.min(cur+1,10)+' / 10';$('bar').firstChild.style.width=cur*10+'%'}
+function say(s){toast=s;toastT=3}
+function burst(px,py,col,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=60+Math.random()*180;parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,l:1,c:col})}}
+
+function openQ(){const q=Q[cur];modal=true;$('qo').classList.add('on');
+ $('qh').textContent='Terminal '+(cur+1)+'  |  Level '+(cur+1)+' of 10';
+ $('qc').style.display=q.c?'block':'none';$('qc').textContent=q.c;$('qt').textContent=q.q;$('fb').textContent='';
+ const b=$('opts');b.innerHTML='';q.o.forEach((s,i)=>{const e=document.createElement('button');e.textContent=(i+1)+'.  '+s;e.onclick=()=>pick(i,e);b.appendChild(e)});
+ b.firstChild.focus();beep(660,.1)}
+function closeQ(){modal=false;$('qo').classList.remove('on')}
+function pick(i,el){if(!modal)return;const q=Q[cur];
+ if(i===q.a){closeQ();const d=desks[cur];burst(d.x+55,d.y-20,'#22e3a5',40);beep(880,.15);setTimeout(()=>beep(1320,.2),120);
+  cur++;hud();
+  if(cur===10){escapeSeq()}else say('Access granted! Terminal '+(cur+1)+' is unlocked. Level '+(cur+1)+' ahead.')}
+ else{shake=.4;beep(140,.3,'sawtooth');if(el){el.classList.add('x');el.disabled=true}$('fb').textContent='Wrong answer. Trace the code line by line and try again.'}}
+
+let esc=0;
+function escapeSeq(){st='escape';esc=0;say('All terminals solved. The exit door is opening!')}
+function moveTo(tx,ty,dt){const dx=tx-P.x,dy=ty-P.y,d=Math.hypot(dx,dy);if(d<3){return true}P.x+=dx/d*150*dt;P.y+=dy/d*150*dt;P.mv=true;if(Math.abs(dx)>1)P.dx=Math.sign(dx);return false}
+
+function hit(px,py){const l=px-11,r=px+11,tp=py-7,b=py+7;if(l<15||r>945||tp<125||b>525)return true;return desks.some(d=>l<d.x+d.w&&r>d.x&&b>d.y&&tp<d.y+d.h)}
+function update(dt){t+=dt;if(shake>0)shake-=dt;if(toastT>0)toastT-=dt;if(flash>0)flash-=dt;
+ parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt;p.l-=dt*.8});parts=parts.filter(p=>p.l>0);
+ P.mv=false;
+ if(st==='play'&&!modal){
+  let mx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),my=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+  if(mx&&my){mx*=.707;my*=.707}
+  if(mx||my){P.mv=true;if(mx)P.dx=Math.sign(mx);const nx=P.x+mx*190*dt,ny=P.y+my*190*dt;if(!hit(nx,P.y))P.x=nx;if(!hit(P.x,ny))P.y=ny}
+  near=-1;desks.forEach((d,i)=>{const ax=Math.max(d.x-P.x,0,P.x-(d.x+d.w)),ay=Math.max(d.y-P.y,0,P.y-(d.y+d.h));if(Math.hypot(ax,ay)<38)near=i});
+ } else near=-1;
+ if(P.mv)P.walk+=dt;
+ if(st==='escape'){esc+=dt;door.open=Math.min(1,esc/2);
+  if(esc>1.2){if(esc<8){if(P.x<903){moveTo(905,P.y,dt)}else if(P.y>140){moveTo(905,140,dt)}else if(P.y>70){moveTo(890,60,dt);flash=Math.min(1,(140-P.y)/70+.3)}
+   if(P.y<=75){st='win2';flash=1;burst(890,80,'#ffb545',80);burst(890,80,'#22e3a5',80);beep(1000,.3);setTimeout(()=>beep(1500,.4),200);
+    const s=Math.round((performance.now()-t0)/1000);$('ws').textContent='Escape time: '+Math.floor(s/60)+'m '+(s%60)+'s';setTimeout(()=>{$('win').classList.add('on');st='win'},900)}}}}
+ if(st==='win'&&Math.random()<.4)burst(Math.random()*W,-10,['#22e3a5','#ffb545','#ff5d73','#5cc8ff'][Math.floor(Math.random()*4)],2);
+ const tp=$('tip');if(near>=0&&st==='play'){tp.style.display='block';tp.textContent=near<cur?'Terminal '+(near+1)+' solved':near===cur?'Press E to use Terminal '+(near+1):'Locked. Solve Terminal '+(cur+1)+' first'}else tp.style.display='none';
+}
+
+function room(){
+ let g=x.createLinearGradient(0,0,0,120);g.addColorStop(0,'#0b1730');g.addColorStop(1,'#17305a');x.fillStyle=g;x.fillRect(0,0,W,120);
+ for(let i=0;i<4;i++){const wx=60+i*190;x.fillStyle='#03100b';x.fillRect(wx,18,150,72);x.save();x.beginPath();x.rect(wx,18,150,72);x.clip();x.font='11px "Courier New",monospace';
+  drops[i].forEach((d,c)=>{const y0=(t*d.s+d.o)%110;for(let k=0;k<6;k++){x.fillStyle='rgba(34,227,165,'+(1-k*.17)+')';x.fillText(CH[(c*7+k+Math.floor(t*3)+i)%CH.length],wx+8+c*14.5,18+y0-k*11)}});
+  x.restore();x.strokeStyle='#2b5b8a';x.lineWidth=3;x.strokeRect(wx,18,150,72)}
+ x.fillStyle='#22e3a5';x.font='bold 13px "Courier New",monospace';x.fillText('VIRTUAL LAB 404',W/2-150,108);
+ x.fillStyle='#0a1426';x.fillRect(0,116,W,6);
+ for(let r=0;r<11;r++)for(let c=0;c<24;c++){x.fillStyle=(r+c)%2?'#0f1b33':'#12213d';x.fillRect(c*40,122+r*40,40,40)}
+ const fl=.06+.03*Math.sin(t*3);g=x.createRadialGradient(W/2,300,20,W/2,300,480);g.addColorStop(0,'rgba(90,200,255,'+fl+')');g.addColorStop(1,'rgba(0,0,0,.35)');x.fillStyle=g;x.fillRect(0,122,W,H)
+}
+function doorDraw(){const d=door,o=d.open;
+ x.fillStyle='#000';x.fillRect(d.x-6,0,d.w+12,116);
+ if(o>0){let g=x.createLinearGradient(0,0,0,116);g.addColorStop(0,'#fff');g.addColorStop(1,'#bfe9ff');x.globalAlpha=o;x.fillStyle=g;x.fillRect(d.x,26,d.w,90);x.globalAlpha=1}
+ x.save();x.beginPath();x.rect(d.x,26,d.w,90);x.clip();x.fillStyle='#39485f';x.fillRect(d.x,26-90*o,d.w,90);x.fillStyle='#4a5c78';for(let i=0;i<4;i++)x.fillRect(d.x+6,34-90*o+i*21,d.w-12,3);x.restore();
+ x.fillStyle=o>0?'#22e3a5':'#ff5d73';x.font='bold 14px "Courier New",monospace';x.fillText('EXIT',d.x+22,18);
+ x.beginPath();x.arc(d.x+d.w-8,14,4+Math.sin(t*6)*(o?0:1.5),0,7);x.fill()}
+function deskDraw(d,i){const solved=i<cur,act=i===cur;
+ x.fillStyle='rgba(0,0,0,.35)';x.fillRect(d.x+6,d.y+d.h,d.w,7);
+ x.fillStyle='#2e2521';x.fillRect(d.x,d.y,d.w,d.h);x.fillStyle='#5b4737';x.fillRect(d.x,d.y,d.w,11);
+ x.fillStyle='#1c1c24';x.fillRect(d.x+28,d.y+17,54,10);x.fillStyle='#3a3a48';for(let k=0;k<6;k++)x.fillRect(d.x+31+k*8,d.y+19,6,3);
+ const mx=d.x+20,my=d.y-42;x.fillStyle='#14141c';x.fillRect(mx,my,70,42);x.fillRect(d.x+50,d.y-2,10,4);
+ const pu=.55+.45*Math.sin(t*5);x.save();
+ if(solved){x.fillStyle='#0d6b45';x.shadowColor='#22e3a5';x.shadowBlur=12}else if(act){x.fillStyle='rgb(30,'+(150+pu*80|0)+',255)';x.shadowColor='#5cc8ff';x.shadowBlur=10+pu*20}else{x.fillStyle='#4a1420'}
+ x.fillRect(mx+4,my+4,62,32);x.restore();
+ x.fillStyle=solved?'#c8ffe6':act?'#fff':'#9a5060';x.font='bold 15px "Courier New",monospace';x.textAlign='center';
+ x.fillText(solved?'OK ✓':act?'?? '+(i+1):'LOCK '+(i+1),mx+35,my+25);x.textAlign='left'}
+function playerDraw(){const px=P.x,py=P.y,s=P.mv?Math.sin(P.walk*11)*4:0,b=P.mv?Math.abs(Math.sin(P.walk*11))*2:0,f=P.dx;
+ x.fillStyle='rgba(0,0,0,.4)';x.beginPath();x.ellipse(px,py,13,5,0,0,7);x.fill();
+ x.fillStyle='#1f2f55';x.fillRect(px-7,py-13-b,6,13-Math.max(s,0)*.6);x.fillRect(px+1,py-13-b,6,13+Math.min(s,0)*.6);
+ x.fillStyle='#e8eef8';x.fillRect(px-8,py-14,7,3);x.fillRect(px+1,py-14,7,3);
+ x.fillStyle='#3b82f6';x.fillRect(px-9,py-31-b,18,19);x.fillStyle='#2b62c0';x.fillRect(px-9,py-31-b,18,4);
+ x.fillStyle='#3b82f6';x.fillRect(px-14,py-30-b+s*.4,5,12);x.fillRect(px+9,py-30-b-s*.4,5,12);
+ x.fillStyle='#f2c9a0';x.beginPath();x.arc(px,py-39-b,8,0,7);x.fill();
+ x.fillStyle='#2a1c14';x.beginPath();x.arc(px,py-41-b,8,3.3,6.1);x.fill();
+ x.fillStyle='#111';x.fillRect(px+f*3-1,py-40-b,2,3);x.fillRect(px+f*3+f*4-1,py-40-b,2,3);
+ x.fillStyle='#5cc8ff';x.fillRect(px-6,py-39-b,12,1)}
+function draw(){x.save();if(shake>0)x.translate((Math.random()-.5)*10,(Math.random()-.5)*10);
+ room();doorDraw();
+ const items=desks.map((d,i)=>({y:d.y+d.h,f:()=>deskDraw(d,i)}));items.push({y:P.y,f:playerDraw});items.sort((a,b)=>a.y-b.y).forEach(o=>o.f());
+ if(near>=0&&st==='play'){const d=desks[near];x.strokeStyle='#ffb545';x.lineWidth=2;x.setLineDash([6,4]);x.strokeRect(d.x-4,d.y-46,d.w+8,d.h+50);x.setLineDash([])}
+ parts.forEach(p=>{x.globalAlpha=Math.max(p.l,0);x.fillStyle=p.c;x.fillRect(p.x,p.y,5,5)});x.globalAlpha=1;
+ if(toastT>0){x.globalAlpha=Math.min(1,toastT);x.fillStyle='#000c';x.fillRect(W/2-300,H-70,600,32);x.strokeStyle='#22e3a5';x.strokeRect(W/2-300,H-70,600,32);x.fillStyle='#dff6ff';x.font='15px "Courier New",monospace';x.textAlign='center';x.fillText(toast,W/2,H-49);x.textAlign='left';x.globalAlpha=1}
+ if(shake>0){x.fillStyle='rgba(255,60,80,'+shake*.4+')';x.fillRect(0,0,W,H)}
+ if(flash>0&&st!=='play'){x.fillStyle='rgba(255,255,255,'+Math.min(flash,1)*.8+')';x.fillRect(0,0,W,H)}
+ x.restore()}
+function loop(n){const dt=Math.min(.05,(n-last)/1000||0);last=n;if(st!=='start')update(dt);else t+=dt;draw();requestAnimationFrame(loop)}
+
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+ if(modal){if(k>='1'&&k<='4'){const b=$('opts').children[+k-1];if(b&&!b.disabled)pick(+k-1,b)}if(k==='escape')closeQ();return}
+ keys[k]=true;
+ if(k==='e'&&st==='play'&&near>=0){if(near===cur)openQ();else if(near<cur)say('Terminal '+(near+1)+' is already solved.');else{say('Locked. Solve Terminal '+(cur+1)+' first.');beep(200,.15)}}});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+addEventListener('blur',()=>keys={});
+$('go').onclick=()=>{$('start').classList.remove('on');reset();say('Find the glowing terminal and press E.')};
+$('again').onclick=()=>{$('win').classList.remove('on');reset()};
+requestAnimationFrame(loop);
+</script></body></html>
